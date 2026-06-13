@@ -285,9 +285,31 @@ let scoredMatches = MATCHES.map(m=>({...m,score:computeScore(m.factors),scoreLev
 let topPick = scoredMatches[0];
 // Demo mode: show top 3 matches fully, hide the rest
 function isDemoMode(){ return document.cookie.indexOf('bsh_demo=1') !== -1; }
-function isDemoHidden(matchId){ return isDemoMode() && matchId > 3; } // Only show top 3
+function isDemoHidden(matchId){ return isDemoMode() && matchId > 3; }
 function demoScore(v, mid){ return isDemoHidden(mid) ? '???' : v; }
 function demoVal(v, mid){ return isDemoHidden(mid) ? '???' : v; }
+
+// Presentation mode: click/space to reveal next section (for video recording)
+function isPresMode(){ return new URLSearchParams(window.location.search).get('p')==='1'; }
+let presStep=0;
+const presSections=['header','stats','topPick','factors','radar','matchList','dimensions','methodology'];
+function presNext(){
+  if(!isPresMode()||presStep>=presSections.length)return;
+  const s=presSections[presStep];
+  if(s==='header'){document.querySelector('header').style.opacity='1';document.querySelector('header').style.animation='revealSlideUp 0.6s ease-out forwards'}
+  if(s==='stats'){document.querySelectorAll('.reveal-delay-1').forEach(e=>{e.style.opacity='1';e.style.animation='revealSlideUp 0.6s ease-out forwards'})}
+  if(s==='topPick'){document.getElementById('blackSwanSection').style.opacity='1';document.getElementById('blackSwanSection').style.animation='revealSlideUp 0.6s ease-out forwards'}
+  if(s==='factors'){document.querySelectorAll('.reveal-delay-2').forEach(e=>{e.style.opacity='1';e.style.animation='revealSlideUp 0.6s ease-out forwards'})}
+  if(s==='radar'){const c=document.getElementById('topPickRadar');if(c){c.style.opacity='1';c.style.transform='scale(1)';c.style.transition='all 0.6s ease-out'}}
+  if(s==='matchList'){document.querySelectorAll('.reveal-delay-3').forEach(e=>{e.style.opacity='1';e.style.animation='revealSlideUp 0.6s ease-out forwards'})}
+  if(s==='dimensions'){document.getElementById('dimensionGrid').parentElement.style.opacity='1';document.getElementById('dimensionGrid').parentElement.style.animation='revealSlideUp 0.6s ease-out forwards'}
+  if(s==='methodology'){document.getElementById('methodologySection').style.opacity='1';document.getElementById('methodologySection').style.animation='revealSlideUp 0.6s ease-out forwards'}
+  presStep++;updatePresDot();
+}
+function updatePresDot(){
+  let d=document.getElementById('presDot');if(!d){d=document.createElement('div');d.id='presDot';d.style.cssText='position:fixed;bottom:16px;right:16px;z-index:999;padding:6px 12px;border-radius:16px;background:rgba(0,0,0,0.7);color:#fbbf24;font-size:11px;font-family:monospace;pointer-events:none';document.body.appendChild(d)}
+  d.textContent=presStep>=presSections.length?'✓ Ready':`Step ${presStep+1}/${presSections.length}`;
+}
 
 let activeDimension = null;
 let currentDetailId = null;
@@ -720,6 +742,24 @@ function init(){
     const hint=document.getElementById('shareHint');
     hint.textContent='📱 '+window.location.host;
     hint.classList.remove('hidden');
+  }
+
+  // Presentation mode setup
+  if(isPresMode()){
+    // Hide all sections initially
+    document.querySelector('header').style.opacity='0';
+    document.querySelectorAll('.reveal-delay-1,.reveal-delay-2,.reveal-delay-3,.reveal-delay-4').forEach(e=>e.style.opacity='0');
+    document.getElementById('blackSwanSection').style.opacity='0';
+    document.getElementById('topPickRadar').style.opacity='0';document.getElementById('topPickRadar').style.transform='scale(0.9)';
+    document.getElementById('dimensionGrid').parentElement.style.opacity='0';
+    document.getElementById('methodologySection').style.opacity='0';
+    document.querySelector('.admin-toggle').style.display='none';
+    // Click or space to advance
+    document.addEventListener('click',presNext);
+    document.addEventListener('keydown',e=>{if(e.key===' '||e.key==='ArrowRight'){e.preventDefault();presNext()}});
+    updatePresDot();
+    // Auto-show first step after short delay
+    setTimeout(presNext,500);
   }
 
   // Demo mode: show banner, hide admin

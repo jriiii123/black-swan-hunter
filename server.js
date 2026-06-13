@@ -26,6 +26,15 @@ function requireAuth(req, res, next) {
   // Skip these paths
   if (req.path === '/api/verify' || req.path === '/api/health') return next();
 
+  // Video preview mode: ?v=1 bypasses login, auto-sets demo cookie
+  if (req.query.v === '1') {
+    const token = crypto.randomBytes(32).toString('hex');
+    VALID_TOKENS.set(token, Date.now() + 30 * 24 * 60 * 60 * 1000);
+    res.cookie('bsh_token', token, { maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: true, sameSite: 'lax' });
+    res.cookie('bsh_demo', '1', { maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: false, sameSite: 'lax' });
+    return res.redirect('/');
+  }
+
   const token = req.cookies.bsh_token;
   if (token && VALID_TOKENS.has(token)) {
     if (Date.now() < VALID_TOKENS.get(token)) return next();
