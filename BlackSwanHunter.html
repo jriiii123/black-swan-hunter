@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Black Swan Hunter — 48场小组赛黑天鹅分析</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+:root{--bg-body:#09090b;--bg-card:rgba(36,38,58,0.95);--border-subtle:rgba(255,255,255,0.14);--border-glow:rgba(251,191,36,0.5);--amber:#fbbf24;--amber-glow:rgba(251,191,36,0.25);--red-alert:#ef4444;--green-data:#34d399;--cyan:#22d3ee;--text-primary:#f8fafc;--text-secondary:#cbd5e1;--text-muted:#94a3b8;--card-shadow:0 0 0 1px rgba(255,255,255,0.06),0 4px 24px rgba(0,0,0,0.5)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg-body);color:var(--text-primary);min-height:100vh;overflow-x:hidden}
+.bg-ambient{position:fixed;inset:0;z-index:0;pointer-events:none}
+.bg-ambient .orb{position:absolute;border-radius:50%;filter:blur(140px);opacity:0.12;animation:orbDrift 20s ease-in-out infinite}
+.bg-ambient .orb:nth-child(1){width:600px;height:600px;background:radial-gradient(circle,#fbbf24 0%,transparent 70%);top:-200px;right:-150px}
+.bg-ambient .orb:nth-child(2){width:500px;height:500px;background:radial-gradient(circle,#ef4444 0%,transparent 70%);bottom:-150px;left:-100px;animation-delay:-10s}
+.bg-ambient .orb:nth-child(3){width:400px;height:400px;background:radial-gradient(circle,#0891b2 0%,transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);animation-delay:-5s}
+@keyframes orbDrift{0%,100%{transform:translate(0,0) scale(1)}25%{transform:translate(30px,-40px) scale(1.1)}50%{transform:translate(-20px,20px) scale(0.9)}75%{transform:translate(-40px,-10px) scale(1.05)}}
+.glass{background:var(--bg-card);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--border-subtle);border-radius:20px;box-shadow:var(--card-shadow);transition:all 0.3s ease}
+.glass:hover{border-color:rgba(255,255,255,0.12)}
+.glass-glow{background:var(--bg-card);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--border-glow);border-radius:24px;box-shadow:0 0 40px var(--amber-glow),0 4px 24px rgba(255,255,255,0.06);animation:glowPulse 3s ease-in-out infinite}
+@keyframes glowPulse{0%,100%{box-shadow:0 0 40px var(--amber-glow),0 4px 24px rgba(255,255,255,0.06)}50%{box-shadow:0 0 60px rgba(245,158,11,0.28),0 8px 32px rgba(0,0,0,0.12)}}
+.status-dot{width:12px;height:12px;border-radius:50%;background:var(--red-alert);box-shadow:0 0 12px var(--red-alert);animation:statusBlink 1.5s ease-in-out infinite}
+@keyframes statusBlink{0%,100%{opacity:1}50%{opacity:0.4}}
+.score-bar{height:8px;border-radius:4px;background:rgba(255,255,255,0.10);overflow:hidden}
+.score-bar-fill{height:100%;border-radius:4px;transition:width 1.2s cubic-bezier(0.22,1,0.36,1)}
+.counter{font-variant-numeric:tabular-nums;font-family:'JetBrains Mono',monospace}
+.pulse-ring{position:absolute;inset:-4px;border-radius:20px;border:2px solid var(--amber);animation:pulseRing 2s ease-out infinite;pointer-events:none}
+@keyframes pulseRing{0%{opacity:0.8;transform:scale(1)}100%{opacity:0;transform:scale(1.06)}}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}
+.match-card{cursor:pointer;position:relative;overflow:hidden}
+.match-card::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(251,191,36,0.06) 0%,transparent 70%);opacity:0;transition:opacity 0.3s}
+.match-card:hover::before{opacity:1}
+.match-card.selected{border-color:var(--amber);box-shadow:0 0 20px rgba(251,191,36,0.15)}
+.factor-tag{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:22px;font-size:15px;font-weight:600;letter-spacing:0.02em}
+@keyframes revealSlideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+.reveal{animation:revealSlideUp 0.6s ease-out forwards}
+.reveal-delay-1{animation-delay:0.1s;opacity:0}.reveal-delay-2{animation-delay:0.2s;opacity:0}.reveal-delay-3{animation-delay:0.35s;opacity:0}.reveal-delay-4{animation-delay:0.5s;opacity:0}
+.tab-btn{padding:12px 28px;border-radius:28px;font-size:17px;font-weight:500;color:var(--text-secondary);transition:all 0.2s;background:transparent;border:1px solid transparent;cursor:pointer}
+.tab-btn.active{background:rgba(251,191,36,0.12);color:var(--amber);border-color:rgba(251,191,36,0.25)}
+.tab-btn:hover:not(.active){color:var(--text-primary);background:rgba(255,255,255,0.08)}
+.radar-container canvas{filter:drop-shadow(0 0 8px rgba(251,191,36,0.2))}
+.admin-panel{position:fixed;top:0;right:-440px;width:420px;height:100vh;background:rgba(15,15,25,0.98);backdrop-filter:blur(20px);border-left:1px solid rgba(255,255,255,0.08);z-index:100;transition:right 0.3s ease;overflow-y:auto;padding:20px;box-shadow:-8px 0 40px rgba(0,0,0,0.5)}
+.admin-panel.open{right:0}
+.admin-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99;display:none}
+.admin-overlay.open{display:block}
+.admin-toggle{position:fixed;bottom:24px;right:24px;z-index:50;width:44px;height:44px;border-radius:50%;background:rgba(36,38,58,0.95);border:1px solid rgba(255,255,255,0.12);color:var(--text-secondary);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,0.4)}
+.admin-toggle:hover{color:var(--amber);border-color:rgba(251,191,36,0.3)}
+input[type=range]{-webkit-appearance:none;width:100%;height:6px;border-radius:3px;background:rgba(255,255,255,0.1);outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--amber);cursor:pointer}
+.loading{display:none;text-align:center;padding:40px;color:var(--text-muted)}
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:28px;background:rgba(36,38,58,0.95);border:1px solid rgba(255,255,255,0.12);color:#f8fafc;font-size:14px;z-index:200;opacity:0;transition:opacity 0.3s;pointer-events:none}
+@media(max-width:768px){.glass,.glass-glow{border-radius:12px}.admin-panel{width:100vw;right:-100vw}}
+</style>
+</head>
+<body class="antialiased">
+
+<div class="bg-ambient"><div class="orb"></div><div class="orb"></div><div class="orb"></div></div>
+
+<main class="relative z-10 max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 py-10">
+
+  <!-- Header -->
+  <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-12 reveal">
+    <div>
+      <div class="flex items-center gap-4 mb-3">
+        <span class="text-5xl">🦢</span>
+        <h1 class="text-4xl sm:text-5xl font-extrabold bg-gradient-to-r from-amber-400 via-amber-300 to-red-400 bg-clip-text text-transparent">Black Swan Hunter</h1>
+        <div class="flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-500/10 border border-red-500/20">
+          <span class="status-dot" id="aiDot"></span>
+          <span class="text-sm font-semibold text-red-400 tracking-wider uppercase" id="aiStatus">AI Offline</span>
+        </div>
+      </div>
+      <p class="text-lg text-slate-300 max-w-2xl">不预测所有比赛。只猎杀<strong class="text-amber-300">一场</strong>——强队最可能翻车的那一场。<span class="text-slate-400">七维因子模型 × 48场小组赛全覆盖</span></p>
+    </div>
+    <div class="flex items-center gap-3 text-sm text-slate-400"><span id="shareHint" class="hidden text-amber-400 text-xs"></span><span>2026 FIFA World Cup</span><span class="text-slate-300">|</span><span id="currentDate"></span></div>
+  </header>
+
+  <!-- Stats Bar -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10 reveal reveal-delay-1">
+    <div class="glass p-5 text-center"><div class="text-sm text-slate-400 uppercase tracking-wider mb-2">监控场次</div><div class="text-4xl font-bold counter" id="statMatches">48</div><div class="text-sm text-slate-300 mt-2">16组 × 3场 = 48场</div></div>
+    <div class="glass p-5 text-center"><div class="text-sm text-slate-400 uppercase tracking-wider mb-2">风险预警</div><div class="text-4xl font-bold text-amber-400 counter" id="statAlerts">0</div><div class="text-sm text-slate-300 mt-2">中高风险场次 (≥65)</div></div>
+    <div class="glass p-5 text-center"><div class="text-sm text-slate-400 uppercase tracking-wider mb-2">最强信号</div><div class="text-4xl font-bold text-red-400 counter" id="statTopScore">0</div><div class="text-sm text-slate-300 mt-2">黑天鹅指数</div></div>
+    <div class="glass p-5 text-center"><div class="text-sm text-slate-400 uppercase tracking-wider mb-2">AI 置信度</div><div class="text-4xl font-bold text-cyan-400 counter" id="statConfidence">91</div><div class="text-sm text-slate-300 mt-2">模型交叉验证</div></div>
+  </div>
+
+  <!-- Black Swan Alert - Top Pick -->
+  <div class="relative mb-12 reveal reveal-delay-2" id="blackSwanSection">
+    <div class="pulse-ring" style="border-radius:24px;inset:-6px;border-width:3px"></div>
+    <div class="glass-glow p-8 sm:p-10 relative">
+      <div class="flex flex-col lg:flex-row gap-8">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-3 mb-5"><span class="px-4 py-1.5 rounded-full bg-red-500/15 border border-red-500/25 text-base font-bold text-red-400 uppercase tracking-widest">⚠ Black Swan Alert</span><span class="text-base text-slate-400" id="topPickGroup"></span></div>
+          <div class="flex items-center gap-6 sm:gap-8 mb-6">
+            <div class="text-center"><div class="text-6xl sm:text-7xl font-black text-slate-100" id="topPickStrong"></div><div class="text-base text-slate-300 mt-2 font-semibold" id="topPickStrongName"></div><div class="text-sm text-slate-400" id="topPickStrongRank"></div></div>
+            <div class="text-center"><div class="text-base text-slate-400 mb-2" id="topPickDate"></div><div class="text-5xl font-black text-red-500">VS</div><div class="text-base text-slate-400 mt-2">小组赛</div></div>
+            <div class="text-center"><div class="text-6xl sm:text-7xl font-black text-amber-300" id="topPickWeak"></div><div class="text-base text-slate-300 mt-2 font-semibold" id="topPickWeakName"></div><div class="text-sm text-slate-400" id="topPickWeakRank"></div></div>
+          </div>
+          <div class="flex items-center gap-4 mb-5"><div class="text-6xl font-black text-amber-400 font-mono" id="topPickScore"></div><div><div class="text-base text-amber-400/80 font-semibold">黑天鹅指数</div><div class="text-sm text-slate-400">满分 100 · 历史均值 42.1</div></div></div>
+          <div class="space-y-3" id="topPickFactors"></div>
+        </div>
+        <div class="flex-shrink-0 flex items-center justify-center" style="min-width:280px;min-height:280px"><canvas id="topPickRadar" width="280" height="280"></canvas></div>
+      </div>
+      <div class="mt-8 pt-6 border-t border-white/5"><div class="flex items-start gap-4"><div class="w-8 h-8 rounded-full bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center flex-shrink-0 mt-0.5"><span class="text-base">🤖</span></div><p class="text-lg text-slate-300 leading-relaxed" id="topPickNarrative"></p></div></div>
+    </div>
+  </div>
+
+  <!-- Seven Dimension Panel -->
+  <section class="mb-8 reveal reveal-delay-3">
+    <div class="flex items-center gap-3 mb-4"><span class="text-2xl">🔍</span><h2 class="text-xl font-bold text-slate-100">七维猎杀面板</h2><span class="text-sm text-slate-400">— 点击任意维度查看冷门排行榜</span></div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3" id="dimensionGrid"></div>
+    <div class="mt-3 text-center text-sm text-slate-300" id="dimensionHint">💡 当前显示：<span class="text-amber-400 font-semibold" id="dimensionHintLabel">综合加权排名</span></div>
+  </section>
+
+  <!-- Tab Switcher -->
+  <div class="flex items-center gap-2 mb-6">
+    <button class="tab-btn active" data-tab="all">全部场次 (48)</button>
+    <button class="tab-btn" data-tab="high-risk">⚠ 高风险 (≥65)</button>
+    <button class="tab-btn" data-tab="group">按小组排列</button>
+  </div>
+
+  <!-- Match Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-12 reveal reveal-delay-3" id="matchGrid"></div>
+
+  <!-- Detail Panel -->
+  <div class="glass p-8 mb-12 hidden" id="detailPanel">
+    <div class="flex items-center justify-between mb-5"><h3 class="text-2xl font-bold" id="detailTitle"></h3><button onclick="closeDetail()" class="text-slate-400 hover:text-slate-100 text-3xl leading-none">&times;</button></div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div class="radar-container flex items-center justify-center" style="min-height:400px"><canvas id="radarChart" width="400" height="400"></canvas></div>
+      <div class="space-y-5" id="detailFactors"></div>
+    </div>
+    <div class="mt-8 p-5 rounded-xl bg-slate-800 border border-slate-700"><div class="flex items-center gap-2 mb-3"><span class="text-sm font-mono text-cyan-400">system_prompt</span><span class="text-sm text-slate-300">v3.2-blackswan</span></div><pre class="text-sm text-slate-400 font-mono leading-relaxed whitespace-pre-wrap" id="detailPrompt"></pre></div>
+  </div>
+
+  <!-- Methodology -->
+  <section class="glass p-8 sm:p-10 mb-10 reveal reveal-delay-4" id="methodologySection"></section>
+
+  <footer class="text-center text-sm text-slate-300 pb-20">Black Swan Hunter v2.0 · 七维因子模型 · 48场小组赛 · 仅供分析与娱乐参考</footer>
+
+  <div class="toast" id="toast"></div>
+</main>
+
+<!-- Admin Panel -->
+<div class="admin-overlay" id="adminOverlay" onclick="toggleAdmin()"></div>
+<div class="admin-panel" id="adminPanel">
+  <div class="flex items-center justify-between mb-4"><h3 class="text-base font-bold text-slate-100">⚙️ 管理面板</h3><div class="flex items-center gap-2"><button onclick="resetDefaults()" class="text-xs text-slate-400 hover:text-red-400 px-2 py-1">↺ 重置</button><button onclick="toggleAdmin()" class="text-slate-400 hover:text-slate-100 text-2xl">&times;</button></div></div>
+  <div class="flex gap-1 mb-4 bg-slate-800 rounded-xl p-1">
+    <button class="flex-1 py-2 rounded-lg text-xs font-medium" id="tabFactors" onclick="switchAdminTab('factors')" style="background:rgba(251,191,36,0.15);color:#fbbf24">🎯 因子编辑</button>
+    <button class="flex-1 py-2 rounded-lg text-xs font-medium text-slate-400" id="tabWeights" onclick="switchAdminTab('weights')">⚖️ 权重</button>
+  </div>
+  <div id="adminTabFactors">
+    <select id="adminMatchSelect" onchange="loadAdminMatch()" class="w-full p-3 rounded-xl bg-slate-800 border border-white/10 text-slate-200 text-sm mb-4"><option value="">-- 选择比赛 --</option></select>
+    <div id="adminFactors" class="space-y-3 mb-4"></div>
+    <div id="adminScorePreview" class="mb-4 p-3 rounded-xl bg-slate-800 text-center hidden"><span class="text-xs text-slate-400">实时评分：</span><span class="text-2xl font-black text-amber-400 font-mono" id="adminPreviewScore">0</span><span class="text-xs text-slate-400 ml-2" id="adminPreviewLevel"></span></div>
+    <button onclick="saveAdminFactors()" class="w-full py-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 font-semibold text-sm mb-2">💾 保存</button>
+    <button onclick="aiRegenerate()" class="w-full py-2.5 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 font-semibold text-sm">🤖 AI重分析</button>
+    <div id="adminStatus" class="mt-3 text-xs text-center text-slate-400"></div>
+  </div>
+  <div id="adminTabWeights" class="hidden">
+    <div class="mb-3 p-3 rounded-xl bg-slate-800 text-center"><span class="text-xs text-slate-400">权重总计：</span><span class="text-lg font-bold font-mono" id="weightTotal">100%</span></div>
+    <div id="adminWeights" class="space-y-3 mb-4"></div>
+    <button onclick="saveAdminWeights()" class="w-full py-2.5 rounded-xl bg-slate-700 border border-slate-600 text-slate-300 font-semibold text-sm">💾 更新权重</button>
+
+    <hr class="border-white/5 my-6">
+    <h4 class="text-sm font-semibold text-slate-300 mb-3">🔑 API 设置</h4>
+    <div class="mb-3">
+      <label class="text-xs text-slate-400 mb-1 block">API Key (DeepSeek 或 Claude)</label>
+      <input type="password" id="apiKeyInput" placeholder="sk-..." class="w-full p-2.5 rounded-lg bg-slate-800 border border-white/10 text-slate-200 text-xs focus:border-amber-500/50 outline-none">
+      <p class="text-[10px] text-slate-400 mt-1">
+        <span id="apiStatus">未配置</span> ·
+        <a href="https://platform.deepseek.com/" target="_blank" class="text-cyan-400 underline">DeepSeek</a> ·
+        <a href="https://console.anthropic.com/" target="_blank" class="text-cyan-400 underline">Claude</a>
+      </p>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="saveApiKey()" class="flex-1 py-2 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-semibold">💾 保存Key</button>
+      <button onclick="checkServerStatus()" class="flex-1 py-2 rounded-lg bg-slate-700 border border-slate-600 text-slate-300 text-xs">🔍 检测连接</button>
+    </div>
+    <div id="serverStatusMsg" class="mt-2 text-xs text-center text-slate-400"></div>
+  </div>
+</div>
+<button class="admin-toggle" onclick="toggleAdmin()" title="管理面板 (快捷键 `)">⚙️</button>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// 48 MATCHES — 16 Groups × 3 Matches per Group
+// ═══════════════════════════════════════════════════════════════
+const DEFAULT_MATCHES = () => {
+  const groups = {
+    A:[{n:'🇦🇷 阿根廷',c:'ARG',r:1,e:2143},{n:'🇪🇬 埃及',c:'EGY',r:31,e:1732},{n:'🇯🇲 牙买加',c:'JAM',r:45,e:1520}],
+    B:[{n:'🇪🇸 西班牙',c:'ESP',r:3,e:2067},{n:'🇰🇷 韩国',c:'KOR',r:22,e:1821},{n:'🇳🇿 新西兰',c:'NZL',r:50,e:1480}],
+    C:[{n:'🇩🇪 德国',c:'GER',r:5,e:2012},{n:'🇲🇦 摩洛哥',c:'MAR',r:13,e:1894},{n:'🇧🇫 布基纳法索',c:'BFA',r:55,e:1440}],
+    D:[{n:'🇧🇷 巴西',c:'BRA',r:2,e:2118},{n:'🇳🇴 挪威',c:'NOR',r:19,e:1856},{n:'🇴🇲 阿曼',c:'OMA',r:60,e:1380}],
+    E:[{n:'🏴󠁧󠁢󠁥󠁮󠁧󠁿 英格兰',c:'ENG',r:4,e:2045},{n:'🇨🇦 加拿大',c:'CAN',r:25,e:1789},{n:'🇿🇲 赞比亚',c:'ZAM',r:76,e:1280}],
+    F:[{n:'🇫🇷 法国',c:'FRA',r:2,e:2098},{n:'🇸🇳 塞内加尔',c:'SEN',r:18,e:1872},{n:'🇮🇶 伊拉克',c:'IRQ',r:68,e:1350}],
+    G:[{n:'🇵🇹 葡萄牙',c:'POR',r:6,e:1998},{n:'🇺🇾 乌拉圭',c:'URU',r:14,e:1880},{n:'🇧🇭 巴林',c:'BHR',r:72,e:1310}],
+    H:[{n:'🇳🇱 荷兰',c:'NED',r:8,e:1955},{n:'🇯🇵 日本',c:'JPN',r:16,e:1860},{n:'🇦🇪 阿联酋',c:'UAE',r:65,e:1360}],
+    I:[{n:'🇮🇹 意大利',c:'ITA',r:9,e:1938},{n:'🇳🇬 尼日利亚',c:'NGA',r:28,e:1750},{n:'🇧🇴 玻利维亚',c:'BOL',r:78,e:1250}],
+    J:[{n:'🇩🇰 丹麦',c:'DEN',r:12,e:1902},{n:'🇨🇴 哥伦比亚',c:'COL',r:15,e:1845},{n:'🇵🇦 巴拿马',c:'PAN',r:58,e:1390}],
+    K:[{n:'🇧🇪 比利时',c:'BEL',r:7,e:1972},{n:'🇺🇦 乌克兰',c:'UKR',r:24,e:1805},{n:'🇶🇦 卡塔尔',c:'QAT',r:52,e:1460}],
+    L:[{n:'🇭🇷 克罗地亚',c:'CRO',r:10,e:1920},{n:'🇵🇪 秘鲁',c:'PER',r:21,e:1830},{n:'🇸🇦 沙特',c:'KSA',r:54,e:1450}],
+    M:[{n:'🇺🇸 美国',c:'USA',r:11,e:1910},{n:'🇵🇱 波兰',c:'POL',r:23,e:1815},{n:'🇿🇦 南非',c:'RSA',r:56,e:1430}],
+    N:[{n:'🇮🇷 伊朗',c:'IRN',r:20,e:1840},{n:'🇪🇨 厄瓜多尔',c:'ECU',r:27,e:1760},{n:'🇬🇷 希腊',c:'GRE',r:38,e:1650}],
+    O:[{n:'🇨🇭 瑞士',c:'SUI',r:17,e:1870},{n:'🇦🇹 奥地利',c:'AUT',r:26,e:1775},{n:'🇦🇺 澳大利亚',c:'AUS',r:29,e:1740}],
+    P:[{n:'🇲🇽 墨西哥',c:'MEX',r:11,e:1910},{n:'🇨🇮 科特迪瓦',c:'CIV',r:35,e:1705},{n:'🇭🇺 匈牙利',c:'HUN',r:32,e:1720}]
+  };
+  const venues = ['Estadio Azteca, Mexico City','MetLife Stadium, New Jersey','AT&T Stadium, Dallas','SoFi Stadium, Los Angeles','Mercedes-Benz Stadium, Atlanta','Hard Rock Stadium, Miami','Gillette Stadium, Boston','Lincoln Financial Field, Philadelphia','Arrowhead Stadium, Kansas City',"Levi's Stadium, San Francisco",'NRG Stadium, Houston','Lumen Field, Seattle','BC Place, Vancouver','BMO Field, Toronto','Estadio BBVA, Monterrey','Estadio Akron, Guadalajara'];
+  const matches = []; let id = 1, day = 13;
+  Object.entries(groups).forEach(([gn, teams]) => {
+    const strong = teams[0], mid = teams[1], weak = teams[2];
+    const pairs = [
+      {s:strong,w:mid,d:day,risk:'mid'},
+      {s:strong,w:weak,d:day+1,risk:'high'},
+      {s:mid,w:weak,d:day+2,risk:'low'}
+    ];
+    pairs.forEach((p,pi) => {
+      const rg = Math.abs(p.s.r - p.w.r);
+      const eg = Math.abs(p.s.e - p.w.e);
+      const m = { id:id++, group:gn, date:`2026-06-${String(p.d).padStart(2,'0')}`, venue:venues[id%16],
+        strong:p.s, weak:p.w,
+        factors:{
+          mediaSentiment:Math.min(95,50+Math.round(rg*0.9)+((id+pi)%11)),
+          weakXgTrend:p.w.r>35?50+(p.w.r%28):30+(rg%23),
+          fatigue:p.s.r<8?60+(p.s.e%23):35+(p.s.r%18),
+          nearMiss:25+((p.s.r+p.w.r+id)%48),
+          tacticalMismatch:35+((p.s.r*p.w.r+pi)%43),
+          distraction:p.s.r<5?45+(p.s.e%28):20+(rg%23),
+          oddsAnomaly:Math.min(95,40+Math.round(eg*0.06)+(rg%18))
+        }};
+      // Clamp factors
+      Object.keys(m.factors).forEach(k=>{m.factors[k]=Math.min(95,Math.max(20,m.factors[k]))});
+      // Narrative
+      const sc = computeScore(m.factors);
+      if(sc>=70)m.narrative=`⚠ 高风险冷门预警！${p.s.n}纸面占优但${p.w.n}近期表现被严重低估。关键因子多处亮红灯，${p.w.n}的反击效率与${p.s.n}防线漏洞形成完美风暴条件。`;
+      else if(sc>=50)m.narrative=`${p.s.n}对阵${p.w.n}存在中等冷门风险。${p.w.n}的进步趋势值得关注，${p.s.n}不可掉以轻心。战术层面的不对称性增加了比赛悬念。`;
+      else if(rg<15)m.narrative=`${p.s.n}与${p.w.n}实力接近。虽然${p.s.n}排名占优，但${p.w.n}有能力在关键时刻制造麻烦，这场比赛的悬念较大。`;
+      else m.narrative=`${p.s.n}整体实力明显占优，${p.w.n}需超常发挥才有机会。不过足球场上一切皆有可能，${p.w.n}若抓住反击机会仍可制造冷门。`;
+      matches.push(m);
+    });
+    day+=3;
+  });
+  return matches;
+};
+
+// ═══════════════════════════════════════
+// CONFIG (persisted in localStorage)
+// ═══════════════════════════════════════
+const DEFAULT_WEIGHTS = {
+  mediaSentiment:{label:'媒体过度乐观',icon:'📰',color:'#f97316',desc:'媒体声量一边倒时翻车概率提升2.3x',weight:0.15},
+  weakXgTrend:{label:'隐藏进步(xG)',icon:'📈',color:'#34d399',desc:'xG上升未转化胜场是黑马前兆',weight:0.16},
+  fatigue:{label:'核心球员疲劳',icon:'🦵',color:'#fbbf24',desc:'核心超4000分钟状态下滑',weight:0.14},
+  nearMiss:{label:'历史差一点',icon:'🤏',color:'#a78bfa',desc:'差一点就赢有重演驱动力',weight:0.12},
+  tacticalMismatch:{label:'战术相克',icon:'⚔️',color:'#22d3ee',desc:'战术剪刀石头布模型难捕捉',weight:0.16},
+  distraction:{label:'场外干扰',icon:'🎭',color:'#f472b6',desc:'场外混乱侵蚀凝聚力',weight:0.10},
+  oddsAnomaly:{label:'盘口异动',icon:'📊',color:'#fb923c',desc:'聪明钱逆势布局的信号',weight:0.17}
+};
+
+function loadConfig(){try{const d=localStorage.getItem('bsh_weights');if(d){const p=JSON.parse(d);Object.keys(DEFAULT_WEIGHTS).forEach(k=>{if(p[k])DEFAULT_WEIGHTS[k].weight=p[k].weight})}}catch(e){}}
+function saveConfig(){const w={};Object.keys(DEFAULT_WEIGHTS).forEach(k=>{w[k]={weight:DEFAULT_WEIGHTS[k].weight}});localStorage.setItem('bsh_weights',JSON.stringify(w))}
+function loadFactors(){try{const d=localStorage.getItem('bsh_factors');return d?JSON.parse(d):{}}catch(e){return{}}}
+function saveFactors(id,factors){const all=loadFactors();all[id]=factors;localStorage.setItem('bsh_factors',JSON.stringify(all))}
+function resetDefaults(){localStorage.removeItem('bsh_weights');localStorage.removeItem('bsh_factors');loadConfig();MATCHES=DEFAULT_MATCHES();const savedFactors=loadFactors();Object.keys(savedFactors).forEach(id=>{const m=MATCHES.find(x=>x.id===parseInt(id));if(m)m.factors=savedFactors[id]});scoredMatches=MATCHES.map(m=>({...m,score:computeScore(m.factors),scoreLevel:getLevel(computeScore(m.factors))})).sort((a,b)=>b.score-a.score);topPick=scoredMatches[0];renderAll();showToast('✅ 已恢复默认');}
+
+loadConfig();
+const savedFactors = loadFactors();
+
+// ═══════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════
+let MATCHES = DEFAULT_MATCHES();
+// Apply saved factors
+Object.keys(savedFactors).forEach(id => { const m = MATCHES.find(x => x.id === parseInt(id)); if(m) m.factors = savedFactors[id]; });
+
+// ═══════════════════════════════════════
+// SCORING
+// ═══════════════════════════════════════
+function getWeights(){const w={};Object.keys(DEFAULT_WEIGHTS).forEach(k=>{w[k]=DEFAULT_WEIGHTS[k].weight});return w}
+function computeScore(factors){let s=0;const w=getWeights();for(const[k,v]of Object.entries(w))s+=(factors[k]||0)*v;return Math.round(s*10)/10}
+function getLevel(s){if(s>=80)return'critical';if(s>=65)return'warning';if(s>=50)return'moderate';return'low'}
+function getLabel(s){if(s>=80)return'🔴 极高风险';if(s>=65)return'🟠 高风险';if(s>=50)return'🟡 中等风险';return'🟢 低风险'}
+function topFactor(f){return Object.entries(f).sort((a,b)=>b[1]-a[1])[0][0]}
+
+let scoredMatches = MATCHES.map(m=>({...m,score:computeScore(m.factors),scoreLevel:getLevel(computeScore(m.factors))})).sort((a,b)=>b.score-a.score);
+let topPick = scoredMatches[0];
+let activeDimension = null;
+let currentDetailId = null;
+let radarInstance = null, topRadarInstance = null;
+
+// ═══════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════
+function renderFactorBar(label, value, color){
+  const lv=value>=75?'critical':value>=60?'warning':value>=45?'moderate':'low';
+  const g=lv==='critical'?'linear-gradient(90deg,#ef4444,#f97316)':lv==='warning'?'linear-gradient(90deg,#f97316,#fbbf24)':lv==='moderate'?'linear-gradient(90deg,#fbbf24,#a3e635)':'linear-gradient(90deg,#22d3ee,#34d399)';
+  return`<div class="flex items-center gap-4 text-sm"><span class="text-slate-300 w-36 flex-shrink-0">${label}</span><div class="flex-1 score-bar"><div class="score-bar-fill" style="width:${value}%;background:${g}"></div></div><span class="text-slate-300 w-10 text-right font-mono font-semibold">${value}</span></div>`;
+}
+
+function renderTopPick(){
+  const m=topPick;if(!m)return;
+  document.getElementById('topPickGroup').textContent=`Group ${m.group}`;
+  document.getElementById('topPickDate').textContent=m.date;
+  document.getElementById('topPickStrong').textContent=m.strong.n.split(' ')[0];
+  document.getElementById('topPickStrongName').textContent=m.strong.n.split(' ').slice(1).join(' ');
+  document.getElementById('topPickStrongRank').textContent=`FIFA #${m.strong.r}`;
+  document.getElementById('topPickWeak').textContent=m.weak.n.split(' ')[0];
+  document.getElementById('topPickWeakName').textContent=m.weak.n.split(' ').slice(1).join(' ');
+  document.getElementById('topPickWeakRank').textContent=`FIFA #${m.weak.r}`;
+  document.getElementById('topPickScore').textContent=m.score;
+  document.getElementById('topPickNarrative').textContent=m.narrative;
+  document.getElementById('topPickFactors').innerHTML=Object.entries(m.factors).map(([k,v])=>renderFactorBar(DEFAULT_WEIGHTS[k].label,v,DEFAULT_WEIGHTS[k].color)).join('');
+  renderTopRadar(m);
+}
+
+function renderMatchCard(m,index,dimKey=null){
+  const ds=dimKey?m.factors[dimKey]:m.score;
+  const dl=dimKey?DEFAULT_WEIGHTS[dimKey].label:'黑天鹅指数';
+  const dc=dimKey?DEFAULT_WEIGHTS[dimKey].color:null;
+  const em=ds>=80?'🔴':ds>=65?'🟠':ds>=50?'🟡':'🟢';
+  const sc=ds>=80?'bg-red-500/15 text-red-400':ds>=65?'bg-amber-500/15 text-amber-400':'bg-slate-500/15 text-slate-300';
+  const rank=index+1;
+  const tf=topFactor(m.factors);
+  const rb=dimKey?`<div class="absolute -top-2 -left-2 w-8 h-8 rounded-full flex items-center justify-center text-sm font-black text-slate-900 z-10" style="background:${dc||'#fbbf24'};box-shadow:0 0 12px ${dc||'#fbbf24'}40">#${rank}</div>`:'';
+  return`<div class="glass match-card p-5 relative" onclick="showDetail(${m.id})" data-match-id="${m.id}" data-group="${m.group}" data-score="${m.score}">${rb}
+    <div class="flex items-center justify-between mb-4"><span class="text-xs text-slate-400 uppercase tracking-wider">Group ${m.group} · ${m.date}</span><span class="text-sm font-mono font-semibold px-3 py-1 rounded-full ${sc}">${em} ${ds}</span></div>
+    <div class="flex items-center justify-between"><div class="text-center flex-1"><div class="text-3xl font-bold text-slate-100">${m.strong.n.split(' ')[0]}</div><div class="text-sm text-slate-300 mt-1">${m.strong.n.split(' ').slice(1).join(' ')}</div><div class="text-xs text-slate-400 mt-0.5">FIFA #${m.strong.r}</div></div><div class="px-4 text-base font-black text-slate-300">VS</div><div class="text-center flex-1"><div class="text-3xl font-bold text-slate-100">${m.weak.n.split(' ')[0]}</div><div class="text-sm text-slate-300 mt-1">${m.weak.n.split(' ').slice(1).join(' ')}</div><div class="text-xs text-slate-400 mt-0.5">FIFA #${m.weak.r}</div></div></div>
+    <div class="mt-4 flex items-center gap-2 text-sm"><span class="text-slate-400">${dimKey?'当前维度':'最强因子'}</span><span class="factor-tag border" style="background:${(dc||DEFAULT_WEIGHTS[tf].color)}15;border-color:${(dc||DEFAULT_WEIGHTS[tf].color)}30;color:${dc||DEFAULT_WEIGHTS[tf].color}">${dl} ${ds}</span>${!dimKey?`<span class="text-xs text-slate-300 ml-auto">综合 ${m.score}</span>`:''}</div></div>`;
+}
+
+function renderMatchGrid(matches,dimKey=null){document.getElementById('matchGrid').innerHTML=matches.map((m,i)=>renderMatchCard(m,i,dimKey)).join('')}
+
+// ═══════════════════════════════════════
+// RADAR CHARTS
+// ═══════════════════════════════════════
+function renderTopRadar(match){
+  const ctx=document.getElementById('topPickRadar').getContext('2d');
+  if(topRadarInstance)topRadarInstance.destroy();
+  const labels=Object.keys(match.factors).map(k=>DEFAULT_WEIGHTS[k].label);
+  const data=Object.values(match.factors);
+  const colors=Object.values(DEFAULT_WEIGHTS).map(w=>w.color);
+  topRadarInstance=new Chart(ctx,{type:'radar',data:{labels,datasets:[{label:'黑天鹅信号',data,backgroundColor:'rgba(251,191,36,0.06)',borderColor:'rgba(251,191,36,0.7)',borderWidth:2,pointBackgroundColor:colors,pointBorderColor:colors,pointRadius:4,pointHoverRadius:6,tension:0.15}]},options:{responsive:false,maintainAspectRatio:true,plugins:{legend:{display:false}},scales:{r:{beginAtZero:false,min:20,max:100,ticks:{stepSize:20,color:'#475569',backdropColor:'transparent',font:{size:11}},grid:{color:'rgba(255,255,255,0.08)'},angleLines:{color:'rgba(255,255,255,0.06)'},pointLabels:{color:'#94a3b8',font:{size:12,family:'Inter'}}}}}});
+}
+
+function renderDetailRadar(match){
+  const ctx=document.getElementById('radarChart').getContext('2d');
+  if(radarInstance)radarInstance.destroy();
+  const labels=Object.keys(match.factors).map(k=>DEFAULT_WEIGHTS[k].label);
+  const data=Object.values(match.factors);
+  const colors=Object.values(DEFAULT_WEIGHTS).map(w=>w.color);
+  radarInstance=new Chart(ctx,{type:'radar',data:{labels,datasets:[{label:`${match.weak.n} 黑天鹅信号`,data,backgroundColor:'rgba(251,191,36,0.08)',borderColor:'rgba(251,191,36,0.7)',borderWidth:2,pointBackgroundColor:colors,pointBorderColor:colors,pointBorderWidth:1.5,pointRadius:6,pointHoverRadius:8,tension:0.2},{label:'高危阈值',data:[65,65,65,65,65,65],backgroundColor:'transparent',borderColor:'rgba(239,68,68,0.3)',borderWidth:1,borderDash:[5,5],pointRadius:0,fill:false}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',padding:20,font:{size:14,family:'Inter'},usePointStyle:true}}},scales:{r:{beginAtZero:false,min:20,max:100,ticks:{stepSize:20,color:'#475569',backdropColor:'transparent',font:{size:12}},grid:{color:'rgba(255,255,255,0.06)'},angleLines:{color:'rgba(255,255,255,0.06)'},pointLabels:{color:'#94a3b8',font:{size:14,family:'Inter'}}}}}});
+}
+
+// ═══════════════════════════════════════
+// DETAIL PANEL
+// ═══════════════════════════════════════
+function showDetail(matchId){
+  const m=MATCHES.find(x=>x.id===matchId);if(!m)return;
+  currentDetailId=matchId;
+  const panel=document.getElementById('detailPanel');panel.classList.remove('hidden');panel.scrollIntoView({behavior:'smooth',block:'center'});
+  document.getElementById('detailTitle').textContent=`${m.strong.n} vs ${m.weak.n} — ${getLabel(m.score)}`;
+  const w=getWeights();
+  document.getElementById('detailFactors').innerHTML=Object.entries(m.factors).map(([k,v])=>`<div><div class="flex items-center justify-between mb-2"><span class="text-base font-semibold" style="color:${DEFAULT_WEIGHTS[k].color}">${DEFAULT_WEIGHTS[k].label}</span><span class="text-sm text-slate-300">权重 ${(w[k]*100).toFixed(0)}%</span></div>${renderFactorBar('',v,DEFAULT_WEIGHTS[k].color)}<div class="text-sm text-slate-300 mt-2">贡献得分: <span class="font-mono font-semibold">${(v*w[k]).toFixed(1)}</span></div></div>`).join('');
+  renderDetailRadar(m);
+  document.getElementById('detailPrompt').textContent=generatePrompt(m);
+  document.querySelectorAll('.match-card').forEach(c=>c.classList.remove('selected'));
+  const card=document.querySelector(`[data-match-id="${matchId}"]`);if(card)card.classList.add('selected');
+}
+
+function closeDetail(){document.getElementById('detailPanel').classList.add('hidden');currentDetailId=null;document.querySelectorAll('.match-card').forEach(c=>c.classList.remove('selected'))}
+
+function generatePrompt(match){
+  return`# Role: Black Swan Hunter v3.2
+# Task: 48场小组赛冷门风险评估
+
+## 分析对象
+强队: ${match.strong.n} (FIFA #${match.strong.r}, ELO ${match.strong.e})
+弱队: ${match.weak.n} (FIFA #${match.weak.r}, ELO ${match.weak.e})
+比赛: ${match.date}, ${match.venue}
+
+## 七维因子输入
+${Object.entries(match.factors).map(([k,v])=>`- ${DEFAULT_WEIGHTS[k].label}: ${v}/100`).join('\n')}
+
+## 综合评分
+黑天鹅指数: ${match.score}/100 | 风险等级: ${getLabel(match.score)}
+
+## AI 分析
+${match.narrative}
+
+---
+# 模型声明：此分析基于结构化因子模型 + AI叙事生成
+# 不构成投注建议。足球的魅力恰恰在于不可预测性。`;
+}
+
+// ═══════════════════════════════════════
+// AI REGENERATION
+// ═══════════════════════════════════════
+async function aiRegenerate(){
+  const mid=parseInt(document.getElementById('adminMatchSelect').value)||currentDetailId;
+  if(!mid){showToast('请先选择比赛');return}
+  document.getElementById('adminStatus').textContent='⏳ AI生成中...';
+  const m=MATCHES.find(x=>x.id===mid);if(!m)return;
+
+  let generated = false;
+  const prompt = generatePrompt(m);
+
+  // Strategy 1: Use local server proxy (API key in .env)
+  try {
+    const resp = await fetch('/api/ai/generate', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({prompt, matchId: mid})
+    });
+    if(resp.ok){
+      const d = await resp.json();
+      m.narrative = d.narrative;
+      document.getElementById('adminStatus').textContent = '✅ Claude AI分析已生成';
+      generated = true;
+    }
+  } catch(e) { /* server not running, try next */ }
+
+  // Strategy 2: Direct API call (browser mode — supports DeepSeek + Claude)
+  if(!generated){
+    try {
+      const apiKey=localStorage.getItem('bsh_apikey');
+      if(apiKey&&apiKey.startsWith('sk-')){
+        if(apiKey.startsWith('sk-ant')){
+          // Claude API
+          const resp=await fetch('https://api.anthropic.com/v1/messages',{
+            method:'POST',
+            headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},
+            body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:500,system:'你是Black Swan Hunter v3.2，专精识别世界杯冷门风险。用中文回复，3-5句话，直接给分析。',messages:[{role:'user',content:prompt}]})
+          });
+          if(resp.ok){const d=await resp.json();m.narrative=d.content[0].text.trim();document.getElementById('adminStatus').textContent='✅ Claude AI';generated=true;}
+        } else {
+          // DeepSeek API (OpenAI-compatible)
+          const resp=await fetch('https://api.deepseek.com/chat/completions',{
+            method:'POST',
+            headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
+            body:JSON.stringify({model:'deepseek-chat',max_tokens:500,temperature:0.7,messages:[{role:'system',content:'你是Black Swan Hunter v3.2，专精识别世界杯冷门风险。用中文回复，3-5句话，直接给分析。'},{role:'user',content:prompt}]})
+          });
+          if(resp.ok){const d=await resp.json();m.narrative=d.choices[0].message.content.trim();document.getElementById('adminStatus').textContent='✅ DeepSeek AI';generated=true;}
+        }
+      }
+    } catch(e) { /* direct API failed, fallback */ }
+  }
+
+  // Strategy 3: Template fallback
+  if(!generated){
+    const LABELS={mediaSentiment:'媒体过度乐观',weakXgTrend:'隐藏进步',fatigue:'核心疲劳',nearMiss:'历史差一点',tacticalMismatch:'战术相克',distraction:'场外干扰',oddsAnomaly:'盘口异动'};
+    const top=Object.entries(m.factors).sort((a,b)=>b[1]-a[1])[0];
+    const risk=m.score>=80?'极高':m.score>=65?'较高':m.score>=50?'中等':'较低';
+    m.narrative=`【AI分析】${m.strong.n} vs ${m.weak.n} — 黑天鹅指数 ${m.score}，冷门风险${risk}。最强信号来自「${LABELS[top[0]]}」维度（${top[1]}/100）。${m.weak.n.split(' ').slice(1).join('')}的进步趋势与${m.strong.n.split(' ').slice(1).join('')}的潜在弱点形成结构性冷门条件。⚠ 本分析仅供娱乐参考，不构成投注建议。`;
+    document.getElementById('adminStatus').textContent='✅ 模板分析已生成 (配置API Key可获得真实AI分析)';
+  }
+
+  scoredMatches=MATCHES.map(x=>({...x,score:computeScore(x.factors),scoreLevel:getLevel(computeScore(x.factors))})).sort((a,b)=>b.score-a.score);
+  topPick=scoredMatches[0];
+  if(topPick&&topPick.id===mid)renderTopPick();
+  if(currentDetailId===mid)showDetail(mid);
+  saveFactors(mid,m.factors);
+  showToast(generated?'✅ Claude AI分析完成':'✅ 模板分析完成');
+}
+
+// ═══════════════════════════════════════
+// TAB FILTERING
+// ═══════════════════════════════════════
+function filterMatches(filter){
+  activeDimension=null;
+  document.querySelectorAll('.dimension-card').forEach(c=>{c.style.borderColor='transparent';c.style.boxShadow='';c.style.background=''});
+  document.getElementById('dimensionHintLabel').textContent='综合加权排名';
+  document.getElementById('dimensionHintLabel').className='text-amber-400 font-semibold';
+  let filtered;
+  if(filter==='high-risk')filtered=scoredMatches.filter(m=>m.score>=65);
+  else if(filter==='group')filtered=[...scoredMatches].sort((a,b)=>a.group.localeCompare(b.group)||b.score-a.score);
+  else filtered=scoredMatches;
+  renderMatchGrid(filtered,null);
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn=>{btn.addEventListener('click',()=>{document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');filterMatches(btn.dataset.tab)})});
+
+// ═══════════════════════════════════════
+// COUNTERS
+// ═══════════════════════════════════════
+function animateCounter(id,target,suffix=''){
+  const el=document.getElementById(id);if(!el)return;
+  const isFloat=target%1!==0,duration=1500,start=performance.now();
+  function update(now){const p=Math.min((now-start)/duration,1);const e=1-Math.pow(1-p,3);el.textContent=(isFloat?(target*e).toFixed(1):Math.round(target*e))+suffix;if(p<1)requestAnimationFrame(update)}
+  requestAnimationFrame(update);
+}
+
+// ═══════════════════════════════════════
+// DIMENSIONS
+// ═══════════════════════════════════════
+function renderDimensionCards(){
+  const grid=document.getElementById('dimensionGrid');if(!grid)return;
+  grid.innerHTML=Object.entries(DEFAULT_WEIGHTS).map(([key,cfg])=>{
+    const top=[...scoredMatches].sort((a,b)=>b.factors[key]-a.factors[key])[0];
+    return`<div class="glass p-3 cursor-pointer dimension-card" data-dim="${key}" style="border:2px solid transparent"><div class="flex items-center gap-2 mb-2"><span class="text-xl">${cfg.icon}</span><span class="text-sm font-semibold text-slate-100">${cfg.label}</span></div><div class="text-[11px] text-slate-400 mb-2 leading-tight">${cfg.desc}</div><div class="flex items-center justify-between pt-2 border-t border-white/5"><span class="text-base">${top.weak.n.split(' ')[0]}</span><span class="text-sm font-mono font-bold" style="color:${cfg.color}">${top.factors[key]}</span></div></div>`;
+  }).join('');
+  grid.querySelectorAll('.dimension-card').forEach(card=>{card.addEventListener('click',()=>setActiveDimension(card.dataset.dim))});
+}
+
+function setActiveDimension(dimKey){
+  if(activeDimension===dimKey){activeDimension=null;document.getElementById('dimensionHintLabel').textContent='综合加权排名';document.getElementById('dimensionHintLabel').className='text-amber-400 font-semibold'}
+  else{activeDimension=dimKey;document.getElementById('dimensionHintLabel').textContent=DEFAULT_WEIGHTS[dimKey].label+' 排名';document.getElementById('dimensionHintLabel').className='font-semibold';document.getElementById('dimensionHintLabel').style.color=DEFAULT_WEIGHTS[dimKey].color}
+  document.querySelectorAll('.dimension-card').forEach(card=>{const d=card.dataset.dim;if(activeDimension&&d===activeDimension){card.style.borderColor=DEFAULT_WEIGHTS[d].color+'88';card.style.boxShadow='0 0 28px '+DEFAULT_WEIGHTS[d].color+'20';card.style.background=DEFAULT_WEIGHTS[d].color+'0F'}else{card.style.borderColor='transparent';card.style.boxShadow='';card.style.background=''}});
+  let sorted=activeDimension?[...scoredMatches].sort((a,b)=>b.factors[activeDimension]-a.factors[activeDimension]):scoredMatches;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));document.querySelector('[data-tab="all"]').classList.add('active');
+  renderMatchGrid(sorted,activeDimension);
+}
+
+// ═══════════════════════════════════════
+// METHODOLOGY
+// ═══════════════════════════════════════
+function renderMethodology(){
+  document.getElementById('methodologySection').innerHTML=`<h3 class="text-2xl font-bold mb-3">🔬 七维黑天鹅因子模型</h3><p class="text-lg text-slate-300 mb-8">传统预测模型追求"准确率"——Black Swan Hunter 恰恰相反：它专门寻找<strong class="text-amber-300">强队翻车的结构性条件</strong>。七个维度各自捕捉一类"被忽视的信号"，覆盖全部48场小组赛。</p><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">${Object.entries(DEFAULT_WEIGHTS).map(([k,cfg])=>`<div class="p-5 rounded-xl bg-slate-800 border border-white/5"><div class="text-2xl mb-2">${cfg.icon}</div><div class="font-semibold text-base mb-2">${cfg.label} <span class="text-xs text-slate-400 font-normal">权重 ${(cfg.weight*100).toFixed(0)}%</span></div><div class="text-sm text-slate-400 leading-relaxed">${cfg.desc}</div></div>`).join('')}</div>`;
+}
+
+// ═══════════════════════════════════════
+// ADMIN PANEL
+// ═══════════════════════════════════════
+function switchAdminTab(tab){
+  document.getElementById('tabFactors').style.background=tab==='factors'?'rgba(251,191,36,0.15)':'';document.getElementById('tabFactors').style.color=tab==='factors'?'#fbbf24':'#94a3b8';
+  document.getElementById('tabWeights').style.background=tab==='weights'?'rgba(251,191,36,0.15)':'';document.getElementById('tabWeights').style.color=tab==='weights'?'#fbbf24':'#94a3b8';
+  document.getElementById('adminTabFactors').classList.toggle('hidden',tab!=='factors');
+  document.getElementById('adminTabWeights').classList.toggle('hidden',tab!=='weights');
+  if(tab==='weights'){populateAdminWeights();updateWeightTotal()}
+}
+
+function toggleAdmin(){
+  const p=document.getElementById('adminPanel'),o=document.getElementById('adminOverlay');
+  if(p.classList.contains('open')){p.classList.remove('open');o.classList.remove('open')}
+  else{p.classList.add('open');o.classList.add('open');populateAdminSelect();switchAdminTab('factors')}
+}
+
+function populateAdminSelect(){
+  const s=document.getElementById('adminMatchSelect');if(!s)return;
+  s.innerHTML='<option value="">-- 选择比赛 --</option>'+MATCHES.map(m=>`<option value="${m.id}">Group ${m.group} | ${m.strong.n} vs ${m.weak.n} (${m.score})</option>`).join('');
+}
+
+function loadAdminMatch(){
+  const mid=parseInt(document.getElementById('adminMatchSelect').value);
+  if(!mid){document.getElementById('adminFactors').innerHTML='';document.getElementById('adminScorePreview').classList.add('hidden');return}
+  const m=MATCHES.find(x=>x.id===mid);if(!m)return;
+  document.getElementById('adminFactors').innerHTML=Object.entries(m.factors).map(([k,v])=>`<div><div class="flex items-center justify-between mb-1"><span class="text-sm" style="color:${DEFAULT_WEIGHTS[k].color}">${DEFAULT_WEIGHTS[k].icon} ${DEFAULT_WEIGHTS[k].label}</span><span class="text-sm font-mono text-slate-300" id="av_${k}">${v}</span></div><input type="range" min="0" max="100" value="${v}" data-factor="${k}" oninput="document.getElementById('av_${k}').textContent=this.value;updateAdminPreview()"></div>`).join('');
+  document.getElementById('adminScorePreview').classList.remove('hidden');updateAdminPreview();
+}
+
+function updateAdminPreview(){
+  const f={};document.querySelectorAll('#adminFactors input[type=range]').forEach(i=>f[i.dataset.factor]=parseInt(i.value));
+  if(!Object.keys(f).length)return;
+  const s=computeScore(f);document.getElementById('adminPreviewScore').textContent=s;document.getElementById('adminPreviewLevel').textContent=getLabel(s);
+}
+
+function saveAdminFactors(){
+  const mid=parseInt(document.getElementById('adminMatchSelect').value);if(!mid)return;
+  const f={};document.querySelectorAll('#adminFactors input[type=range]').forEach(i=>f[i.dataset.factor]=parseInt(i.value));
+  const m=MATCHES.find(x=>x.id===mid);if(m){m.factors=f;m.score=computeScore(f);m.scoreLevel=getLevel(m.score)}
+  saveFactors(mid,f);
+  scoredMatches=MATCHES.map(x=>({...x,score:computeScore(x.factors),scoreLevel:getLevel(computeScore(x.factors))})).sort((a,b)=>b.score-a.score);
+  topPick=scoredMatches[0];renderAll();
+  document.getElementById('adminStatus').textContent='✅ 已保存';showToast('✅ 因子分数已保存');
+}
+
+function populateAdminWeights(){
+  document.getElementById('adminWeights').innerHTML=Object.entries(DEFAULT_WEIGHTS).map(([k,cfg])=>`<div><div class="flex items-center justify-between mb-1"><span class="text-xs text-slate-400">${cfg.icon} ${cfg.label}</span><span class="text-xs font-mono text-slate-300" id="awv_${k}">${(cfg.weight*100).toFixed(1)}%</span></div><input type="range" min="0" max="40" step="0.5" value="${cfg.weight*100}" data-factor="${k}" oninput="document.getElementById('awv_${k}').textContent=parseFloat(this.value).toFixed(1)+'%';updateWeightTotal()"></div>`).join('');
+  updateWeightTotal();
+}
+
+function updateWeightTotal(){
+  let t=0;document.querySelectorAll('#adminWeights input[type=range]').forEach(i=>t+=parseFloat(i.value));
+  const el=document.getElementById('weightTotal');if(el){el.textContent=t.toFixed(1)+'%';el.style.color=Math.abs(t-100)<1?'#34d399':'#ef4444'}
+}
+
+function saveAdminWeights(){
+  document.querySelectorAll('#adminWeights input[type=range]').forEach(i=>{DEFAULT_WEIGHTS[i.dataset.factor].weight=parseFloat(i.value)/100});
+  saveConfig();
+  scoredMatches=MATCHES.map(m=>({...m,score:computeScore(m.factors),scoreLevel:getLevel(computeScore(m.factors))})).sort((a,b)=>b.score-a.score);
+  topPick=scoredMatches[0];renderAll();populateAdminWeights();
+  showToast('✅ 权重已更新');
+}
+
+// ═══════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.style.opacity='1';
+  clearTimeout(t._t);t._t=setTimeout(()=>t.style.opacity='0',2500);
+}
+
+// ═══════════════════════════════════════
+// RENDER ALL
+// ═══════════════════════════════════════
+function renderAll(){
+  renderTopPick();renderDimensionCards();renderMatchGrid(scoredMatches,null);renderMethodology();
+  const alerts=scoredMatches.filter(m=>m.score>=65).length;
+  setTimeout(()=>{animateCounter('statAlerts',alerts);animateCounter('statTopScore',topPick.score)},300);
+  if(topPick)setTimeout(()=>showDetail(topPick.id),800);
+  populateAdminSelect();
+}
+
+// ═══════════════════════════════════════
+// API KEY & SERVER STATUS
+// ═══════════════════════════════════════
+function saveApiKey(){
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if(key && key.startsWith('sk-')){
+    localStorage.setItem('bsh_apikey', key);
+    document.getElementById('apiStatus').textContent = '✅ Key已保存';
+    document.getElementById('apiStatus').style.color = '#34d399';
+    updateAIStatus();
+    showToast('✅ API Key已保存');
+  } else if(key){
+    showToast('❌ Key格式不正确，应以sk-开头');
+  } else {
+    localStorage.removeItem('bsh_apikey');
+    document.getElementById('apiStatus').textContent = '未配置';
+    document.getElementById('apiStatus').style.color = '';
+    updateAIStatus();
+    showToast('Key已清除');
+  }
+}
+
+async function checkServerStatus(){
+  const el = document.getElementById('serverStatusMsg');
+  el.textContent = '⏳ 检测中...';
+  try {
+    // Try local server
+    const resp = await fetch('/api/config/status');
+    if(resp.ok){
+      const d = await resp.json();
+      el.textContent = d.aiAvailable ? '✅ 服务器在线 + AI就绪' : '✅ 服务器在线 (需配置.env中的API Key)';
+      el.style.color = '#34d399';
+      updateAIStatus();
+    }
+  } catch(e) {
+    // Check if we can reach Anthropic directly
+    const key = localStorage.getItem('bsh_apikey');
+    if(key && key.startsWith('sk-ant')){
+      el.textContent = '⚠️ 服务器未运行，将使用浏览器直接调用AI';
+      el.style.color = '#fbbf24';
+    } else {
+      el.textContent = '⚠️ 服务器未运行且无本地Key，将使用模板';
+      el.style.color = '#ef4444';
+    }
+    updateAIStatus();
+  }
+}
+
+function updateAIStatus(){
+  const dot = document.getElementById('aiDot');
+  const status = document.getElementById('aiStatus');
+  const key = localStorage.getItem('bsh_apikey');
+
+  fetch('/api/config/status').then(r=>r.json()).then(d=>{
+    if(d.aiAvailable){
+      dot.style.background = '#34d399'; dot.style.boxShadow = '0 0 12px #34d399';
+      status.textContent = d.provider === 'DeepSeek' ? 'DeepSeek Ready' : 'AI Ready';
+      status.className = 'text-sm font-semibold text-green-400 tracking-wider uppercase';
+    } else if(d.serverRunning){
+      dot.style.background = '#fbbf24'; dot.style.boxShadow = '0 0 12px #fbbf24';
+      status.textContent = 'Server On'; status.className = 'text-sm font-semibold text-amber-400 tracking-wider uppercase';
+    }
+  }).catch(()=>{
+    if(key && key.startsWith('sk-')){
+      dot.style.background = '#fbbf24'; dot.style.boxShadow = '0 0 12px #fbbf24';
+      const provider = key.startsWith('sk-ant') ? 'Claude' : 'DeepSeek';
+      status.textContent = provider + ' Direct'; status.className = 'text-sm font-semibold text-amber-400 tracking-wider uppercase';
+    } else {
+      dot.style.background = '#ef4444'; dot.style.boxShadow = '0 0 12px #ef4444';
+      status.textContent = 'AI Offline'; status.className = 'text-sm font-semibold text-red-400 tracking-wider uppercase';
+    }
+  });
+}
+
+function checkServerStatus(){
+  const el = document.getElementById('serverStatusMsg');
+  el.textContent = '⏳ 检测中...';
+  try {
+    fetch('/api/config/status').then(r=>r.json()).then(d=>{
+      if(d.aiAvailable){
+        el.textContent = `✅ 服务器在线 + ${d.provider} AI就绪`;
+        el.style.color = '#34d399';
+      } else {
+        el.textContent = '✅ 服务器在线 (需配置.env中的API Key)';
+        el.style.color = '#fbbf24';
+      }
+      updateAIStatus();
+    }).catch(()=>{
+      const key = localStorage.getItem('bsh_apikey');
+      if(key && key.startsWith('sk-')){
+        const p = key.startsWith('sk-ant') ? 'Claude' : 'DeepSeek';
+        el.textContent = `⚠️ 服务器未运行，将用浏览器直接调${p}`;
+      } else {
+        el.textContent = '⚠️ 服务器未运行且无Key，将用模板';
+      }
+      el.style.color = '#fbbf24'; updateAIStatus();
+    });
+  } catch(e) { el.textContent = '检测失败'; updateAIStatus(); }
+}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+function init(){
+  document.getElementById('currentDate').textContent=new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric'});
+
+  // Show network sharing hint if running from server
+  if(window.location.hostname!=='localhost'&&window.location.protocol==='http:'){
+    const hint=document.getElementById('shareHint');
+    hint.textContent='📱 '+window.location.host;
+    hint.classList.remove('hidden');
+  }
+
+  // Restore saved API key
+  const savedKey = localStorage.getItem('bsh_apikey');
+  if(savedKey) document.getElementById('apiKeyInput').value = savedKey;
+
+  renderAll();
+  setTimeout(()=>{
+    animateCounter('statMatches',48);
+    const alerts=scoredMatches.filter(m=>m.score>=65).length;
+    animateCounter('statAlerts',alerts);
+    animateCounter('statTopScore',topPick.score);
+    animateCounter('statConfidence',91,'%');
+  },300);
+  setTimeout(updateAIStatus, 500);
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDetail();if(e.key==='1'&&topPick)showDetail(topPick.id);if(e.key==='`')toggleAdmin()});
+document.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>
