@@ -72,7 +72,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
         </div>
       </div>
       <p class="text-lg text-slate-300 max-w-2xl">不预测所有比赛。只猎杀<strong class="text-amber-300">一场</strong>——强队最可能翻车的那一场。<span class="text-slate-400">七维因子模型 × 48场小组赛全覆盖</span></p>
-      <div id="demoBanner" class="hidden mt-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/25 inline-flex items-center gap-2"><span>🔒</span><span class="text-sm text-amber-400 font-semibold">演示模式 — 数据已隐藏，购买激活码解锁完整分析</span></div>
+      <div id="demoBanner" class="hidden mt-2 px-4 py-2 rounded-full bg-slate-800/80 border border-white/10 inline-flex items-center gap-2"><span>📋</span><span class="text-sm text-slate-400">预览版 · 展示部分数据 · <span class="text-slate-300">完整分析请联系管理员</span></span></div>
     </div>
     <div class="flex items-center gap-3 text-sm text-slate-400"><span id="shareHint" class="hidden text-amber-400 text-xs"></span><span>2026 FIFA World Cup</span><span class="text-slate-300">|</span><span id="currentDate"></span></div>
   </header>
@@ -283,10 +283,11 @@ function topFactor(f){return Object.entries(f).sort((a,b)=>b[1]-a[1])[0][0]}
 
 let scoredMatches = MATCHES.map(m=>({...m,score:computeScore(m.factors),scoreLevel:getLevel(computeScore(m.factors))})).sort((a,b)=>b.score-a.score);
 let topPick = scoredMatches[0];
-// Demo mode detection
+// Demo mode: show top 3 matches fully, hide the rest
 function isDemoMode(){ return document.cookie.indexOf('bsh_demo=1') !== -1; }
-function demoVal(v){ return isDemoMode() ? '???' : v; }
-function demoScore(v){ return isDemoMode() ? '?' : v; }
+function isDemoHidden(matchId){ return isDemoMode() && matchId > 3; } // Only show top 3
+function demoScore(v, mid){ return isDemoHidden(mid) ? '???' : v; }
+function demoVal(v, mid){ return isDemoHidden(mid) ? '???' : v; }
 
 let activeDimension = null;
 let currentDetailId = null;
@@ -311,26 +312,27 @@ function renderTopPick(){
   document.getElementById('topPickWeak').textContent=m.weak.n.split(' ')[0];
   document.getElementById('topPickWeakName').textContent=m.weak.n.split(' ').slice(1).join(' ');
   document.getElementById('topPickWeakRank').textContent=`FIFA #${m.weak.r}`;
-  document.getElementById('topPickScore').textContent=demoScore(m.score);
-  document.getElementById('topPickNarrative').textContent=isDemoMode()?'【演示模式】购买激活码后查看完整AI分析...':m.narrative;
-  document.getElementById('topPickFactors').innerHTML=Object.entries(m.factors).map(([k,v])=>renderFactorBar(DEFAULT_WEIGHTS[k].label,isDemoMode()?0:v,DEFAULT_WEIGHTS[k].color)).join('');
+  document.getElementById('topPickScore').textContent=m.score;
+  document.getElementById('topPickNarrative').textContent=isDemoMode()?m.narrative.replace('⚠','').substring(0,80)+'...':m.narrative;
+  document.getElementById('topPickFactors').innerHTML=Object.entries(m.factors).map(([k,v])=>renderFactorBar(DEFAULT_WEIGHTS[k].label,v,DEFAULT_WEIGHTS[k].color)).join('');
   renderTopRadar(m);
 }
 
 function renderMatchCard(m,index,dimKey=null){
   const demo=isDemoMode();
+  const hidden=demo && index >= 3; // Only top 3 visible in demo
   const ds=dimKey?m.factors[dimKey]:m.score;
   const dl=dimKey?DEFAULT_WEIGHTS[dimKey].label:'黑天鹅指数';
   const dc=dimKey?DEFAULT_WEIGHTS[dimKey].color:null;
-  const em=demo?'🔒':ds>=80?'🔴':ds>=65?'🟠':ds>=50?'🟡':'🟢';
-  const sc=demo?'bg-slate-500/15 text-slate-400':ds>=80?'bg-red-500/15 text-red-400':ds>=65?'bg-amber-500/15 text-amber-400':'bg-slate-500/15 text-slate-300';
+  const em=hidden?'🔒':ds>=80?'🔴':ds>=65?'🟠':ds>=50?'🟡':'🟢';
+  const sc=hidden?'bg-slate-500/15 text-slate-400':ds>=80?'bg-red-500/15 text-red-400':ds>=65?'bg-amber-500/15 text-amber-400':'bg-slate-500/15 text-slate-300';
   const rank=index+1;
   const tf=topFactor(m.factors);
   const rb=dimKey?`<div class="absolute -top-2 -left-2 w-8 h-8 rounded-full flex items-center justify-center text-sm font-black text-slate-900 z-10" style="background:${dc||'#fbbf24'};box-shadow:0 0 12px ${dc||'#fbbf24'}40">#${rank}</div>`:'';
   return`<div class="glass match-card p-5 relative" onclick="showDetail(${m.id})" data-match-id="${m.id}" data-group="${m.group}" data-score="${m.score}">${rb}
-    <div class="flex items-center justify-between mb-4"><span class="text-xs text-slate-400 uppercase tracking-wider">Group ${m.group} · ${m.date}</span><span class="text-sm font-mono font-semibold px-3 py-1 rounded-full ${sc}">${em} ${demo?'???':ds}</span></div>
+    <div class="flex items-center justify-between mb-4"><span class="text-xs text-slate-400 uppercase tracking-wider">Group ${m.group} · ${m.date}</span><span class="text-sm font-mono font-semibold px-3 py-1 rounded-full ${sc}">${em} ${hidden?'???':ds}</span></div>
     <div class="flex items-center justify-between"><div class="text-center flex-1"><div class="text-3xl font-bold text-slate-100">${m.strong.n.split(' ')[0]}</div><div class="text-sm text-slate-300 mt-1">${m.strong.n.split(' ').slice(1).join(' ')}</div><div class="text-xs text-slate-400 mt-0.5">FIFA #${m.strong.r}</div></div><div class="px-4 text-base font-black text-slate-300">VS</div><div class="text-center flex-1"><div class="text-3xl font-bold text-slate-100">${m.weak.n.split(' ')[0]}</div><div class="text-sm text-slate-300 mt-1">${m.weak.n.split(' ').slice(1).join(' ')}</div><div class="text-xs text-slate-400 mt-0.5">FIFA #${m.weak.r}</div></div></div>
-    <div class="mt-4 flex items-center gap-2 text-sm"><span class="text-slate-400">${dimKey?'当前维度':'最强因子'}</span><span class="factor-tag border" style="background:${(dc||DEFAULT_WEIGHTS[tf].color)}15;border-color:${(dc||DEFAULT_WEIGHTS[tf].color)}30;color:${dc||DEFAULT_WEIGHTS[tf].color}">${dl} ${demo?'???':ds}</span>${!dimKey?`<span class="text-xs text-slate-300 ml-auto">综合 ${demo?'???':m.score}</span>`:''}</div></div>`;
+    <div class="mt-4 flex items-center gap-2 text-sm"><span class="text-slate-400">${dimKey?'当前维度':'最强因子'}</span><span class="factor-tag border" style="background:${(dc||DEFAULT_WEIGHTS[tf].color)}15;border-color:${(dc||DEFAULT_WEIGHTS[tf].color)}30;color:${dc||DEFAULT_WEIGHTS[tf].color}">${dl} ${hidden?'???':ds}</span>${!dimKey?`<span class="text-xs text-slate-300 ml-auto">综合 ${hidden?'???':m.score}</span>`:''}</div></div>`;
 }
 
 function renderMatchGrid(matches,dimKey=null){document.getElementById('matchGrid').innerHTML=matches.map((m,i)=>renderMatchCard(m,i,dimKey)).join('')}
@@ -363,11 +365,12 @@ function showDetail(matchId){
   const m=MATCHES.find(x=>x.id===matchId);if(!m)return;
   currentDetailId=matchId;
   const panel=document.getElementById('detailPanel');panel.classList.remove('hidden');panel.scrollIntoView({behavior:'smooth',block:'center'});
-  document.getElementById('detailTitle').textContent=`${m.strong.n} vs ${m.weak.n} — ${isDemoMode()?'🔒 演示模式':getLabel(m.score)}`;
+  const demoHidden=isDemoMode()&&m.id>3;
+  document.getElementById('detailTitle').textContent=`${m.strong.n} vs ${m.weak.n} — ${demoHidden?'🔒 详情隐藏':getLabel(m.score)}`;
   const w=getWeights();
-  document.getElementById('detailFactors').innerHTML=Object.entries(m.factors).map(([k,v])=>`<div><div class="flex items-center justify-between mb-2"><span class="text-base font-semibold" style="color:${DEFAULT_WEIGHTS[k].color}">${DEFAULT_WEIGHTS[k].label}</span><span class="text-sm text-slate-300">权重 ${(w[k]*100).toFixed(0)}%</span></div>${renderFactorBar('',isDemoMode()?0:v,DEFAULT_WEIGHTS[k].color)}<div class="text-sm text-slate-300 mt-2">贡献得分: <span class="font-mono font-semibold">${isDemoMode()?'???':(v*w[k]).toFixed(1)}</span></div></div>`).join('');
+  document.getElementById('detailFactors').innerHTML=Object.entries(m.factors).map(([k,v])=>`<div><div class="flex items-center justify-between mb-2"><span class="text-base font-semibold" style="color:${DEFAULT_WEIGHTS[k].color}">${DEFAULT_WEIGHTS[k].label}</span><span class="text-sm text-slate-300">权重 ${(w[k]*100).toFixed(0)}%</span></div>${renderFactorBar('',demoHidden?0:v,DEFAULT_WEIGHTS[k].color)}<div class="text-sm text-slate-300 mt-2">贡献得分: <span class="font-mono font-semibold">${demoHidden?'???':(v*w[k]).toFixed(1)}</span></div></div>`).join('');
   renderDetailRadar(m);
-  document.getElementById('detailPrompt').textContent=isDemoMode()?'【演示模式】购买激活码后查看完整AI分析数据...':generatePrompt(m);
+  document.getElementById('detailPrompt').textContent=demoHidden?'完整数据分析请联系管理员':generatePrompt(m);
   document.querySelectorAll('.match-card').forEach(c=>c.classList.remove('selected'));
   const card=document.querySelector(`[data-match-id="${matchId}"]`);if(card)card.classList.add('selected');
 }
@@ -401,7 +404,7 @@ ${match.narrative}
 // AI REGENERATION
 // ═══════════════════════════════════════
 async function aiRegenerate(){
-  if(isDemoMode()){showToast('🔒 演示模式不支持AI分析，请购买激活码');return}
+  if(isDemoMode()){showToast('AI分析为完整版功能，联系管理员获取');return}
   const mid=parseInt(document.getElementById('adminMatchSelect').value)||currentDetailId;
   if(!mid){showToast('请先选择比赛');return}
   document.getElementById('adminStatus').textContent='⏳ AI生成中...';
@@ -732,10 +735,10 @@ function init(){
   renderAll();
   setTimeout(()=>{
     animateCounter('statMatches',48);
-    const alerts=isDemoMode()?0:scoredMatches.filter(m=>m.score>=65).length;
+    const alerts=scoredMatches.filter(m=>m.score>=65).length;
     animateCounter('statAlerts',alerts);
-    animateCounter('statTopScore',isDemoMode()?0:topPick.score);
-    animateCounter('statConfidence',isDemoMode()?0:91,'%');
+    animateCounter('statTopScore',topPick.score);
+    animateCounter('statConfidence',91,'%');
   },300);
   setTimeout(updateAIStatus, 500);
 }
